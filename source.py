@@ -57,7 +57,7 @@
 
 # Imports and Datasets
 
-# In[6]:
+# In[3]:
 
 
 # Import necessary libraries
@@ -96,7 +96,7 @@ if not df_student.empty:
 # ## 1. Exploratory Data Analysis (EDA)
 # Here we are seeing if there any data issues
 
-# In[7]:
+# In[4]:
 
 
 if not df_prof.empty:
@@ -123,7 +123,7 @@ if not df_prof.empty:
 # `Occupation` has only 5 unique values. This is also perfect and easy to work with.
 # `Country` has 35 unique values. This is the only "tricky" feature. It's a bit high, so in our cleaning plan, we'll note that we should probably group these (e.g., by continent) rather than making 35 new columns.
 
-# In[8]:
+# In[5]:
 
 
 if not df_student.empty:
@@ -154,7 +154,7 @@ if not df_student.empty:
 # #### Visualization 1: Gender Distribution
 # This plot helps us understand the gender makeup of our samples.
 
-# In[9]:
+# In[6]:
 
 
 if not df_prof.empty and not df_student.empty:
@@ -189,7 +189,7 @@ if not df_prof.empty and not df_student.empty:
 # #### Visualization 2: Treatment-Seeking Behavior
 # Here is an interactive grouped bar chart. This chart will try to see the massive difference in treatment seeking behavior between the two groups.
 
-# In[12]:
+# In[7]:
 
 
 if not df_prof.empty and not df_student.empty:
@@ -237,7 +237,7 @@ if not df_prof.empty and not df_student.empty:
 # #### Visualization 3: Student Mental Health Conditions
 # Now we look at the student dataset to see the self-reported rates of depression, anxiety, and panic attacks.
 
-# In[13]:
+# In[8]:
 
 
 if not df_student.empty:
@@ -281,7 +281,7 @@ if not df_student.empty:
 # #### Visualization 4: Family History vs. Treatment in Professionals
 # For our final visualization, we look at the professionals dataset and see if family history is a strong reason for seeking treatment.
 
-# In[14]:
+# In[9]:
 
 
 if not df_prof.empty:
@@ -315,7 +315,7 @@ if not df_prof.empty:
 # * Messy text data (like column names and text entries)
 # * Converting categorical data (text) into a usable format
 
-# In[15]:
+# In[10]:
 
 
 # Create copies to preserve original data
@@ -416,6 +416,8 @@ if not df_student_clean.empty:
 # #### Cleaning Summary:
 # I removed 198274 duplicate rows (Professionals): This was a big step. A lot of entries were repeated and now we have around 94000 unique entries
 
+# ## Check Point 3:
+
 # #### Machine Learning Plan
 # 
 # This project requires us to identify key predictors. We will build two separate models.
@@ -429,15 +431,181 @@ if not df_student_clean.empty:
 # 2.  Random Forest Classifier: This will be my performance model. It is excellent at handling a mix of categorical and numerical features and is less prone to overfitting than a single decision tree. Its "feature importance" output will give us a ranked list of the most predictive factors for each population.
 # 
 # #### What issues do you see? / What challenges will you face?
-# 1.  The sought_treatment is very imbalanced.
-# 
-# 2.  The data we have is pretty categorizal
+# 1.  The sought_treatment is very imbalanced. The data shows 94% of students have not sought treatment. A regular model would predict that there is 94% accuracy here.
+# We will fix this by using the `class_weight='balanced'` parameter. This penalizes the model more heavily for missing the "Yes" cases.
+# 2. The data we have is pretty categorizal. Most of our predictors are text (Gender, Country, Course). We can use a Scikit-Learn `ColumnTransformer` with `OneHotEncoder` to automatically convert the text into binary columns
 
-# ### 5. Prior Feedback and Updates
+# ## 2. Machine Learning Implementation Process
+# 
+# ### Prepare
+# We will split our data into Features (X) and Target (y), and then split those into Training sets and Testing sets.
+
+# In[14]:
+
+
+# Import
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score
+
+# We drop 'treatment' (target), 'Timestamp' and 'Country'
+drop_cols_prof = ['treatment', 'Country']
+if 'Timestamp' in df_prof_clean.columns:
+    drop_cols_prof.append('Timestamp')
+
+X_prof = df_prof_clean.drop(columns=drop_cols_prof) 
+y_prof = df_prof_clean['treatment']
+
+# Split them into train and test sets 
+X_train_prof, X_test_prof, y_train_prof, y_test_prof = train_test_split(
+    X_prof, y_prof, test_size=0.2, random_state=42
+)
+
+# Drop target and intermediate columns like 'cgpa_range'
+drop_cols_stud = ['sought_treatment', 'cgpa_range']
+if 'Timestamp' in df_student_clean.columns:
+    drop_cols_stud.append('Timestamp')
+
+X_stud = df_student_clean.drop(columns=drop_cols_stud) 
+y_stud = df_student_clean['sought_treatment']
+
+X_train_stud, X_test_stud, y_train_stud, y_test_stud = train_test_split(
+    X_stud, y_stud, test_size=0.2, random_state=42, stratify=y_stud
+)
+
+print(f"Professionals Train shape: {X_train_prof.shape}, Test shape: {X_test_prof.shape}")
+print(f"Students Train shape: {X_train_stud.shape}, Test shape: {X_test_stud.shape}")
+
+# ### Process
+# Building a Pipeline
+
+# In[16]:
+
+
+# Column selectors
+numeric_features_prof = X_prof.select_dtypes(include=['int64', 'float64']).columns.tolist()
+categorical_features_prof = X_prof.select_dtypes(include=['object']).columns.tolist()
+numeric_features_stud = ['age', 'cgpa_score']
+categorical_features_stud = X_stud.select_dtypes(include=['object']).columns.tolist()
+
+
+# Professionals
+preprocessor_prof = ColumnTransformer(
+    transformers=[
+        ('num', Pipeline(steps=[
+            ('imputer', SimpleImputer(strategy='mean')),
+            ('scaler', StandardScaler())
+        ]), numeric_features_prof),
+        
+        ('cat', Pipeline(steps=[
+            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+            ('onehot', OneHotEncoder(handle_unknown='ignore'))
+        ]), categorical_features_prof)
+    ])
+
+# Students
+preprocessor_stud = ColumnTransformer(
+    transformers=[
+        ('num', Pipeline(steps=[
+            ('imputer', SimpleImputer(strategy='mean')),
+            ('scaler', StandardScaler())
+        ]), numeric_features_stud),
+        
+        ('cat', Pipeline(steps=[
+            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+            ('onehot', OneHotEncoder(handle_unknown='ignore'))
+        ]), categorical_features_stud)
+    ])
+
+print("Pipelines successfully built.")
+
+# ### Analyze - Professionals
+
+# In[19]:
+
+
+# Model 1: Logistic Regression (Professionals)
+lr_prof_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor_prof),
+    ('classifier', LogisticRegression(max_iter=1000))
+])
+
+# Train the model
+lr_prof_pipeline.fit(X_train_prof, y_train_prof)
+
+# Predictions
+y_pred_lr_prof = lr_prof_pipeline.predict(X_test_prof)
+
+print("--- Logistic Regression (Professionals) ---")
+print("Accuracy:", accuracy_score(y_test_prof, y_pred_lr_prof))
+print("\nClassification Report:\n", classification_report(y_test_prof, y_pred_lr_prof))
+
+# Model 2: Random Forest (Professionals
+rf_prof_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor_prof),
+    ('classifier', RandomForestClassifier(random_state=42))
+])
+
+rf_prof_pipeline.fit(X_train_prof, y_train_prof)
+y_pred_rf_prof = rf_prof_pipeline.predict(X_test_prof)
+
+print("\n--- Random Forest (Professionals) ---")
+print("Accuracy:", accuracy_score(y_test_prof, y_pred_rf_prof))
+print("\nClassification Report:\n", classification_report(y_test_prof, y_pred_rf_prof))
+
+# #### Analyze - Students 
+
+# In[20]:
+
+
+# Logistic Regression - Students
+lr_stud_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor_stud),
+    ('classifier', LogisticRegression(class_weight='balanced', max_iter=1000)) # class_weight='balanced' handles the imbalance we had
+])
+
+lr_stud_pipeline.fit(X_train_stud, y_train_stud)
+y_pred_lr_stud = lr_stud_pipeline.predict(X_test_stud)
+
+print("--- Logistic Regression (Students) ---")
+print("Accuracy:", accuracy_score(y_test_stud, y_pred_lr_stud))
+print("\nClassification Report:\n", classification_report(y_test_stud, y_pred_lr_stud))
+
+# Random Forest - Students
+rf_stud_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor_stud),
+    ('classifier', RandomForestClassifier(class_weight='balanced', random_state=42))
+])
+
+rf_stud_pipeline.fit(X_train_stud, y_train_stud)
+y_pred_rf_stud = rf_stud_pipeline.predict(X_test_stud)
+
+print("\n--- Random Forest (Students) ---")
+print("Accuracy:", accuracy_score(y_test_stud, y_pred_rf_stud))
+print("\nClassification Report:\n", classification_report(y_test_stud, y_pred_rf_stud))
+
+# ### Evaluating the Best Model
+# 
+# #### Professionals Dataset Comparison
+# The Logistic Regression obtained 79% Accuracy. It performed alright. It had a recall of .83 meaning it correctly identified 83% of people who sought treatment.
+# Random Forest had a 82% Accuracy. Also, it had a higher Recall of 0.87.
+# 
+# #### Students Dataset Comparison
+# Logistic Regression obtained only 43% Accuracy. However, it had 1.00 Recall. This means it found 100% of the students who sought help.
+# Random Forest obtained 95% Accuracy. However, looking closer, it had 0.00 Recall. This means it simply predicted "No" for almost everyone.
+# 
+# The Random Forest Classifier model performed the best for both datasets. Logistic Regression was too unreliable for a model and this model performed better with 82% and 95% accuracy for the two datasets.
+
+# ### Prior Feedback and Updates
 # 
 # What feedback did you receive from your peers and/or the teaching team?
 # 
-# "In Checkpoint 1, my project was focused on a single dataset. The feedback I received said "I like the scope of the project. I think the purpose of his project is pretty interesting and it will be cool to see what he comes up with. His objectives and datasets are both valid for what he is trying to do."
+# In Checkpoint 1, my project was focused on a single dataset. The feedback I received said "I like the scope of the project. I think the purpose of his project is pretty interesting and it will be cool to see what he comes up with. His objectives and datasets are both valid for what he is trying to do." I have received no feedback from Checkpoint 2.
 # 
 # What changes have you made to your project based on this feedback?
 # I added another dataset and switched by looking at two distinct lifestyles and the factors from them.
@@ -448,7 +616,7 @@ if not df_student_clean.empty:
 # *What resources and references have you used for this project?*
 # 📝 <!-- Answer Below -->
 
-# In[17]:
+# In[12]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
