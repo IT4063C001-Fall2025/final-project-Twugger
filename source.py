@@ -57,11 +57,10 @@
 
 # Imports and Datasets
 
-# In[3]:
+# In[1]:
 
 
 # Import necessary libraries
-# We are loading libraries for data manipulation and visualization and having separate dataframes for each dataset.
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -96,7 +95,7 @@ if not df_student.empty:
 # ## 1. Exploratory Data Analysis (EDA)
 # Here we are seeing if there any data issues
 
-# In[4]:
+# In[2]:
 
 
 if not df_prof.empty:
@@ -123,7 +122,7 @@ if not df_prof.empty:
 # `Occupation` has only 5 unique values. This is also perfect and easy to work with.
 # `Country` has 35 unique values. This is the only "tricky" feature. It's a bit high, so in our cleaning plan, we'll note that we should probably group these (e.g., by continent) rather than making 35 new columns.
 
-# In[5]:
+# In[3]:
 
 
 if not df_student.empty:
@@ -154,7 +153,7 @@ if not df_student.empty:
 # #### Visualization 1: Gender Distribution
 # This plot helps us understand the gender makeup of our samples.
 
-# In[6]:
+# In[4]:
 
 
 if not df_prof.empty and not df_student.empty:
@@ -189,7 +188,7 @@ if not df_prof.empty and not df_student.empty:
 # #### Visualization 2: Treatment-Seeking Behavior
 # Here is an interactive grouped bar chart. This chart will try to see the massive difference in treatment seeking behavior between the two groups.
 
-# In[7]:
+# In[5]:
 
 
 if not df_prof.empty and not df_student.empty:
@@ -237,7 +236,7 @@ if not df_prof.empty and not df_student.empty:
 # #### Visualization 3: Student Mental Health Conditions
 # Now we look at the student dataset to see the self-reported rates of depression, anxiety, and panic attacks.
 
-# In[8]:
+# In[6]:
 
 
 if not df_student.empty:
@@ -281,7 +280,7 @@ if not df_student.empty:
 # #### Visualization 4: Family History vs. Treatment in Professionals
 # For our final visualization, we look at the professionals dataset and see if family history is a strong reason for seeking treatment.
 
-# In[9]:
+# In[7]:
 
 
 if not df_prof.empty:
@@ -315,7 +314,7 @@ if not df_prof.empty:
 # * Messy text data (like column names and text entries)
 # * Converting categorical data (text) into a usable format
 
-# In[10]:
+# In[11]:
 
 
 # Create copies to preserve original data
@@ -440,7 +439,7 @@ if not df_student_clean.empty:
 # ### Prepare
 # We will split our data into Features (X) and Target (y), and then split those into Training sets and Testing sets.
 
-# In[14]:
+# In[ ]:
 
 
 # Import
@@ -484,7 +483,7 @@ print(f"Students Train shape: {X_train_stud.shape}, Test shape: {X_test_stud.sha
 # ### Process
 # Building a Pipeline
 
-# In[16]:
+# In[ ]:
 
 
 # Column selectors
@@ -526,7 +525,7 @@ print("Pipelines successfully built.")
 
 # ### Analyze - Professionals
 
-# In[19]:
+# In[ ]:
 
 
 # Model 1: Logistic Regression (Professionals)
@@ -560,7 +559,7 @@ print("\nClassification Report:\n", classification_report(y_test_prof, y_pred_rf
 
 # #### Analyze - Students 
 
-# In[20]:
+# In[ ]:
 
 
 # Logistic Regression - Students
@@ -589,17 +588,48 @@ print("\n--- Random Forest (Students) ---")
 print("Accuracy:", accuracy_score(y_test_stud, y_pred_rf_stud))
 print("\nClassification Report:\n", classification_report(y_test_stud, y_pred_rf_stud))
 
+# ### Visualization 5 - Interactive Days Indoors vs. Treatment for Professionals
+
+# In[22]:
+
+
+import plotly.express as px
+
+if 'df_prof_clean' in locals() and not df_prof_clean.empty:
+    fig = px.histogram(df_prof_clean, 
+                       x='Days_Indoors', 
+                       color='treatment', 
+                       barmode='group',
+                       title='Interactive: Time Spent Indoors vs. Treatment Seeking',
+                       labels={'Days_Indoors': 'Time Spent Indoors', 'treatment': 'Sought Treatment'},
+                       category_orders={"Days_Indoors": ["Go out Every day", "1-14 days", "15-30 days", "31-60 days", "More than 2 months"]})
+    fig.show(renderer="browser")
+
+# ### Visualization 6: Interactive CGPA vs Depression for Students
+
+# In[21]:
+
+
+if 'df_student_clean' in locals() and not df_student_clean.empty:
+    cgpa_counts = df_student_clean.groupby(['cgpa_range', 'has_depression']).size().reset_index(name='Count')
+    fig = px.bar(cgpa_counts, 
+                 x='cgpa_range', 
+                 y='Count', 
+                 color='has_depression',
+                 barmode='group',
+                 title='Interactive: Depression Prevalence by CGPA Range (Students)',
+                 labels={'cgpa_range': 'CGPA Range', 'has_depression': 'Has Depression'})
+    fig.show(renderer="browser")
+
 # ### Evaluating the Best Model
 # 
 # #### Professionals Dataset Comparison
-# The Logistic Regression obtained 79% Accuracy. It performed alright. It had a recall of .83 meaning it correctly identified 83% of people who sought treatment.
-# Random Forest had a 82% Accuracy. Also, it had a higher Recall of 0.87.
+# The Logistic Regression got about 79% accuracy, but the Random Forest was better. It hit 82% Accuracy with a Recall of 0.87. So, for the professionals, the Random Forest model is the best choice.
 # 
 # #### Students Dataset Comparison
-# Logistic Regression obtained only 43% Accuracy. However, it had 1.00 Recall. This means it found 100% of the students who sought help.
-# Random Forest obtained 95% Accuracy. However, looking closer, it had 0.00 Recall. This means it simply predicted "No" for almost everyone.
+# The Random Forest model got 95% Accuracy but the Recall for the "Yes" class was 0.00. This means the model just guessed "No" for almost every student because 94% of them didn't seek treatment.
 # 
-# The Random Forest Classifier model performed the best for both datasets. Logistic Regression was too unreliable for a model and this model performed better with 82% and 95% accuracy for the two datasets.
+# Because of this, the Logistic Regression model, even though it only got 43% accuracy, was actually better. This is because it got a Recall of 1.00, meaning it correctly found every single student who sought help. In mental health, finding the people who need help is way more important than overall accuracy, so the Logistic Regression gets the win for students.
 
 # ### Prior Feedback and Updates
 # 
@@ -616,7 +646,18 @@ print("\nClassification Report:\n", classification_report(y_test_stud, y_pred_rf
 # *What resources and references have you used for this project?*
 # 📝 <!-- Answer Below -->
 
-# In[12]:
+# References:
+# 
+# Dataset 1 (Students):** Shariful07. "Student Mental Health." Kaggle. (https://www.kaggle.com/datasets/shariful07/student-mental-health)
+# 
+# Dataset 2 (Professionals): Bhavik Jikadara. "Mental Health Dataset." Kaggle. (https://www.kaggle.com/datasets/bhavikjikadara/mental-health-dataset)
+# 
+# Documentation/Learning
+#    - Scikit-Learn Documentation
+#    - Plotly Express Documentation
+#    - Pandas Documentation
+
+# In[20]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
