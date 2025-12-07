@@ -1,4 +1,4 @@
-# Final-Project-Template
+# Lifestyle Impacts on Mental Health
 <!-- Edit the title above with your project title -->
 
 ## Project Overview
@@ -12,20 +12,23 @@
 
 | Category          | Score    |
 | ----------------- | -------- |
-| **Setup**         | ... / 10 |
-| **Execution**     | ... / 20 |
-| **Documentation** | ... / 10 |
-| **Presentation**  | ... / 30 |
-| **Total**         | ... / 70 |
+| **Setup**         | 10 / 10 |
+| **Execution**     | 20 / 20 |
+| **Documentation** | 10 / 10 |
+| **Presentation**  | 30 / 30 |
+| **Total**         | 70 / 70 |
 
 ### Reflection
 <!-- Edit the following section with your reflection -->
 
 #### What went well?
+Ideating and figuring out what I wanted to do.
 #### What did not go well?
+I think figuring out what the formatting of the assignment should be.
 #### What did you learn?
+I learned about my project and what I wanted to do with it.
 #### What would you do differently next time?
-
+I would definitely look at the datasets more indepth and what topics would work well.
 ---
 
 ## Getting Started
